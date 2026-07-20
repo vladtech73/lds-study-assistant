@@ -1,0 +1,23 @@
+name: Bug report
+description: Something broken in the local study assistant
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do **not** paste copyrighted Conference / Come Follow Me text into issues.
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Commands and observed vs expected behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: legal
+    attributes:
+      label: Legal
+      options:
+        - label: This issue does not include copyrighted Church text
+          required: true

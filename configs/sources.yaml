@@ -1,0 +1,28 @@
+# Corpus manifest. Each entry must have license fields filled before ingest (PR2).
+# license: unverified → loader refuses to run.
+# redistributable: false → may live only under gitignored data/; never exported to SFT.
+
+sources: []
+
+# Example shape (filled in PR2 with verified licenses — do not invent verified_on dates):
+# sources:
+#   - id: kjv
+#     type: scripture
+#     volume: bible
+#     loader: public_scripture
+#     path_or_url: ""
+#     license: unverified
+#     license_url: ""
+#     verified_on: null
+#     redistributable: true
+#     notes: "KJV underlying text is public domain; strip headings/footnotes/apparatus."
+#
+#   - id: conference_user
+#     type: talk
+#     loader: user_files
+#     path_or_url: data/raw/user
+#     license: copyright
+#     license_url: "https://www.churchofjesuschrist.org/legal/terms-of-use"
+#     verified_on: null
+#     redistributable: false
+#     notes: "BYOF only. Never commit. Never include in exported datasets."

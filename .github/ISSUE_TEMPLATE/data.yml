@@ -1,0 +1,22 @@
+name: Data / source question
+description: License, mirror, or BYOF ingest question
+title: "[data] "
+labels: ["data"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do **not** attach or paste restricted corpora. Describe the source at a high level only.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+  - type: checkboxes
+    id: legal
+    attributes:
+      label: Legal
+      options:
+        - label: This issue does not include copyrighted Church text
+          required: true

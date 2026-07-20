@@ -1,0 +1,30 @@
+# Generator / embedder / reranker — single source of truth for model ids.
+# Change IDs here; scripts/pull_models.py and the RAG path read this file.
+
+generator:
+  # Interim default (PR1–PR3). Promote Qwen3-14B only after PR4 lds eval.
+  id: "qwen2.5:14b"
+  hf_id: "Qwen/Qwen2.5-14B-Instruct"  # pulled only with --include-finetune-weights
+  # Documentation-only: Ollama tag already selects quant; not read by pull_models yet.
+  quant: "Q4_K_M"
+  backend: "ollama"   # ollama | llama.cpp (vLLM is Linux/WSL2 only — not supported on native Windows)
+  num_ctx: 8192
+  keep_alive: "5m"
+  kv_cache_quant: "q8_0"
+  adapter: null       # path to LoRA/GGUF adapter after PR5; null = base model
+
+embeddings:
+  id: "BAAI/bge-m3"
+  alternate: "nomic-ai/nomic-embed-text-v1.5"
+  batch_size: 32
+  device: "cuda"      # embedder runs during `lds index` with generator unloaded
+
+reranker:
+  id: "BAAI/bge-reranker-v2-m3"
+  device: "cpu"       # default on 16GB: keep VRAM for the generator during ask
+
+shortlist:
+  # Candidates for PR4 eval promotion (not all pulled by default)
+  - "qwen2.5:14b"
+  - "qwen3:14b"
+  - "gpt-oss:20b"

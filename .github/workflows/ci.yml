@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package (CPU / no torch GPU required)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Copyright allowlist — script self-test
+        run: |
+          python scripts/check_staged_data.py --paths data/README.md data/raw/user/EXAMPLE.meta.json
+          if python scripts/check_staged_data.py --paths data/raw/user/test.txt; then
+            echo "expected failure for restricted path" >&2
+            exit 1
+          fi
+
+      - name: Copyright allowlist — check changed files in this PR/push
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch origin "$BASE_REF" --depth=1
+            RANGE="origin/${BASE_REF}...HEAD"
+          else
+            # push: compare to previous commit when available
+            if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+              RANGE="HEAD^...HEAD"
+            else
+              RANGE=""
+            fi
+          fi
+          if [ -z "$RANGE" ]; then
+            mapfile -t PATHS < <(git ls-files)
+          else
+            mapfile -t PATHS < <(git diff --name-only --diff-filter=ACMR "$RANGE")
+          fi
+          if [ "${#PATHS[@]}" -eq 0 ]; then
+            echo "No changed paths to check."
+            exit 0
+          fi
+          python scripts/check_staged_data.py --paths "${PATHS[@]}"
+
+      - name: Environment check (CPU CI)
+        run: python scripts/check_env.py --allow-cpu
+
+      - name: Ruff
+        run: ruff check src scripts tests
+
+      - name: Pytest
+        run: pytest -q

@@ -1,0 +1,25 @@
+# RAG / retrieval / citation thresholds (PR3 wires these; defaults are intentional guesses).
+
+chunking:
+  scripture: verse_atomic   # one chunk per verse; never char-split scripture
+  prose_tokens: 750
+  prose_overlap_tokens: 80
+  neighbor_window: 2        # expand verse ±N at retrieval time
+
+retrieval:
+  dense_top_k: 50
+  bm25_top_k: 50
+  rrf_k: 60
+  final_top_k: 8
+  min_score: 0.0            # raise after PR4 eval
+  reranker_device: cpu
+
+citation:
+  min_coverage: 0.8         # guess until PR4 sets the real baseline
+  max_regenerate: 1         # regenerate once, then refuse — never silent strip
+  marker_pattern: "\\[\\[([^\\]]+)\\]\\]"
+
+ask:
+  default_mode: study       # study | lesson | talk  (music deferred)
+  temperature: 0.2
+  retry_temperature: 0.0

@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lds-study"
+version = "0.1.0"
+description = "Private local LDS scripture study assistant (RAG-first, CLI-only v1)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Vlad" }]
+keywords = ["lds", "scripture", "rag", "local-llm"]
+dependencies = [
+  "typer>=0.12",
+  "pydantic>=2.6",
+  "pydantic-settings>=2.2",
+  "pyyaml>=6.0",
+  "huggingface-hub>=0.24",
+  "rich>=13.7",
+  # RAG stack (base install — no [rag] extra)
+  "llama-index-core>=0.11",
+  "llama-index-vector-stores-chroma>=0.2",
+  "llama-index-embeddings-huggingface>=0.3",
+  "chromadb>=0.5",
+  "rank-bm25>=0.2",
+]
+
+[project.optional-dependencies]
+finetune = [
+  "unsloth",
+  "peft",
+  "trl",
+  "bitsandbytes",
+  "datasets",
+]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.5",
+]
+
+[project.scripts]
+lds = "lds_study.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+ignore = ["E402"]  # scripts may adjust sys.path before importing the package

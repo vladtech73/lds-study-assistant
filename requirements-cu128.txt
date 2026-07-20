@@ -1,0 +1,10 @@
+# Optional: pin CUDA torch after editable install (do this AFTER pip install -e .)
+# Editable install may resolve a CPU torch via sentence-transformers; reinstall:
+#
+#   pip install --index-url https://download.pytorch.org/whl/cu128 torch
+#
+# scripts/check_env.py reports whether the installed torch build looks like cu128.
+# This file pins a documented baseline; bump when NVIDIA publishes newer cu* indexes.
+
+--index-url https://download.pytorch.org/whl/cu128
+torch>=2.7.0

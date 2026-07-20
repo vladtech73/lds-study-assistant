@@ -1,0 +1,8 @@
+{
+  "title": "Example Talk Title",
+  "author": "Speaker Name",
+  "date": "2024-10-01",
+  "session": "Saturday Morning",
+  "url": "https://example.invalid/personal-copy-only",
+  "notes": "Sidecar template for BYOF files. Do not commit real Conference text."
+}
