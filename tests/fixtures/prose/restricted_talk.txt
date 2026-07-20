@@ -1,0 +1,7 @@
+Heading One
+
+This is restricted conference-like prose for export exclusion tests.
+
+Heading Two
+
+Second section with enough words to form a chunk about faith and repentance.

@@ -28,7 +28,7 @@ Bring your own Conference/CFM files into gitignored `data/raw/user/` only.
 - Fine-tuning on Windows is fragile — see [docs/FINETUNE_WINDOWS.md](docs/FINETUNE_WINDOWS.md)
   (WSL2 fallback documented from day one). Native RAG does **not** need Unsloth.
 
-## Quick start (after PR1 scaffold)
+## Quick start
 
 ```powershell
 python -m venv .venv
@@ -41,14 +41,15 @@ pip install --index-url https://download.pytorch.org/whl/cu128 torch
 .\.venv\Scripts\python.exe scripts\check_env.py
 # Re-run check_env after any dependency change that might reinstall torch.
 .\.venv\Scripts\python.exe scripts\pull_models.py --dry-run
+# First prepare downloads the license-verified scripture JSON (~18MB) into data/raw/public/
+.\.venv\Scripts\python.exe -m lds_study.cli prepare --scripture-only --stats
 ```
 
 `pull-models` downloads the Ollama generator tag plus embed/rerank weights.
 Full Hugging Face generator weights (~28GB) are **not** pulled by default — only with
 `--include-finetune-weights` (QLoRA / PR5; see [docs/FINETUNE_WINDOWS.md](docs/FINETUNE_WINDOWS.md)).
 
-Full pipeline (`prepare` → `index` → `ask`) arrives in PR2–PR3. Until then, CLI
-subcommands other than `pull-models` exit with a clear "not implemented" message.
+`prepare` writes `data/processed/chunks.jsonl` (gitignored). Index + ask arrive in PR3.
 
 Optional pre-commit (copyright gate on every commit):
 

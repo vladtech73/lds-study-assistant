@@ -1,28 +1,37 @@
-# Corpus manifest. Each entry must have license fields filled before ingest (PR2).
+# Corpus manifest — license status is decided per entry (see docs/LEGAL.md).
 # license: unverified → loader refuses to run.
-# redistributable: false → may live only under gitignored data/; never exported to SFT.
+# redistributable: false → may live only under gitignored data/; never exported.
 
-sources: []
+sources:
+  - id: nephi-scriptures
+    type: scripture
+    volume: all
+    loader: public_scripture
+    # Combined KJV + BoM + D&C + PoGP verse JSON from the nephi / beandog public-domain dump.
+    # Prefer a local copy under data/raw/public/ for offline prepares; URL used on first fetch.
+    path_or_url: >-
+      https://raw.githubusercontent.com/beandog/lds-scriptures/2020.12.08/json/lds-scriptures-json.txt
+    expected_sha256: 8797555ccdf4a4d3f5846211aa6ff2b5bb74e97c3264ce48e2ec0933b13bd7e8
+    license: public-domain
+    license_url: https://scriptures.nephi.org/
+    verified_on: "2026-07-20"
+    redistributable: true
+    notes: >-
+      Mirror: beandog/lds-scriptures tag 2020.12.08 (scriptures.nephi.org). Project states
+      scriptures + exports are public domain in the USA and deliberately omits chapter
+      headings, footnotes, Topical Guide, Bible Dictionary, and study aids. This dump
+      contains no Official Declaration entries. Residual risk: mirror provenance is only
+      as good as its claims — see docs/LEGAL.md. Normalization still strips residual
+      footnote markers if present.
 
-# Example shape (filled in PR2 with verified licenses — do not invent verified_on dates):
-# sources:
-#   - id: kjv
-#     type: scripture
-#     volume: bible
-#     loader: public_scripture
-#     path_or_url: ""
-#     license: unverified
-#     license_url: ""
-#     verified_on: null
-#     redistributable: true
-#     notes: "KJV underlying text is public domain; strip headings/footnotes/apparatus."
-#
-#   - id: conference_user
-#     type: talk
-#     loader: user_files
-#     path_or_url: data/raw/user
-#     license: copyright
-#     license_url: "https://www.churchofjesuschrist.org/legal/terms-of-use"
-#     verified_on: null
-#     redistributable: false
-#     notes: "BYOF only. Never commit. Never include in exported datasets."
+  - id: user-byof
+    type: talk
+    loader: user_files
+    path_or_url: data/raw/user
+    license: copyright
+    license_url: https://www.churchofjesuschrist.org/legal/terms-of-use
+    verified_on: "2026-07-20"
+    redistributable: false
+    notes: >-
+      Bring-your-own-files only (General Conference / Come, Follow Me). Never commit.
+      Never include in exported datasets. No override flag exists.
