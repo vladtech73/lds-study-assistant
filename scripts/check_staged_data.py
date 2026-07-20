@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
-"""Fail if paths under data/, indexes/, or models/ leave the structural allowlist.
+"""Fail if paths under data/, indexes/, models/, or outputs/ leave the allowlist.
 
 Allowlist (must stay tight — review any change carefully):
-  - data/**/.gitkeep
-  - data/README.md
-  - data/raw/user/EXAMPLE.meta.json
-  - indexes/.gitkeep, models/.gitkeep, outputs/.gitkeep
-
-Eval markdown under outputs/eval/ is intentionally *not* monitored (PR4 commits reports).
-Content under indexes/ and models/ remains blocked.
+  - data/**/.gitkeep, data/README.md, data/raw/user/EXAMPLE.meta.json
+  - indexes/.gitkeep, models/.gitkeep
+  - outputs/.gitkeep, outputs/eval/.gitkeep, outputs/eval/**/*.md  (PR4 reports)
 
 Usage:
   python scripts/check_staged_data.py              # git staged files (fails closed if git broken)
@@ -23,7 +19,7 @@ import shutil
 import subprocess
 import sys
 
-MONITORED_PREFIXES = ("data/", "indexes/", "models/")
+MONITORED_PREFIXES = ("data/", "indexes/", "models/", "outputs/")
 
 ALLOWLIST_PATTERNS = (
     "data/**/.gitkeep",
@@ -33,6 +29,11 @@ ALLOWLIST_PATTERNS = (
     "indexes/.gitkeep",
     "models/.gitkeep",
     "outputs/.gitkeep",
+    "outputs/eval/.gitkeep",
+    # fnmatch needs both: "**/" requires an intervening directory, so the flat
+    # outputs/eval/2026-07-20.md case needs its own pattern.
+    "outputs/eval/*.md",
+    "outputs/eval/**/*.md",
 )
 
 
@@ -127,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "\nAllowed structural paths only: data/**/.gitkeep, data/README.md, "
             "data/raw/user/EXAMPLE.meta.json, indexes/.gitkeep, models/.gitkeep, "
-            "outputs/.gitkeep."
+            "outputs/.gitkeep, outputs/eval/.gitkeep, outputs/eval/*.md (and nested)."
         )
         return 1
 

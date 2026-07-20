@@ -16,11 +16,15 @@ Thank you for interest in improving this personal study tool.
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements-cu128.txt   # optional GPU torch
 pip install -e ".[dev]"
+pip install --index-url https://download.pytorch.org/whl/cu128 torch
 .\.venv\Scripts\python.exe scripts\check_env.py
 .\.venv\Scripts\python.exe -m pytest -q
+pre-commit install
 ```
+
+`pip install -e ".[dev]"` includes `pre-commit`. Run `pre-commit install` once so the
+copyright allowlist gate runs on every commit (CI is the second layer).
 
 ## PR checklist
 

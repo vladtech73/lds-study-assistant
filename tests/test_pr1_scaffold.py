@@ -65,13 +65,14 @@ def test_allowlist_rejects_indexes_and_models() -> None:
 
 
 def test_allowlist_allows_eval_markdown() -> None:
-    """outputs/eval reports are not monitored (PR4 commits them)."""
+    """PR4 eval reports under outputs/eval/**/*.md are allowlisted."""
     code = subprocess.run(
         [
             sys.executable,
             str(CHECK),
             "--paths",
             "outputs/eval/2026-07-20.md",
+            "outputs/eval/.gitkeep",
         ],
         check=False,
         capture_output=True,
@@ -79,6 +80,22 @@ def test_allowlist_allows_eval_markdown() -> None:
         cwd=str(ROOT),
     )
     assert code.returncode == 0, code.stdout + code.stderr
+
+
+def test_allowlist_rejects_non_eval_outputs() -> None:
+    code = subprocess.run(
+        [
+            sys.executable,
+            str(CHECK),
+            "--paths",
+            "outputs/secrets.bin",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+    )
+    assert code.returncode == 1
 
 
 def test_staged_paths_fail_closed_when_git_errors() -> None:
@@ -111,6 +128,30 @@ def test_package_imports() -> None:
     assert (settings.root / "configs" / "models.yaml").exists()
 
 
+def test_blank_lds_study_root_falls_back(tmp_path: Path, monkeypatch) -> None:
+    """Blank ROOT via dotenv or env must not become Path('.') / cwd."""
+    from lds_study.config import Settings, get_settings, repo_root
+
+    monkeypatch.delenv("LDS_STUDY_ROOT", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    # Dotenv path (closest to the original "copy .env.example" repro)
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("LDS_STUDY_ROOT=\n", encoding="utf-8")
+    assert Settings(_env_file=dotenv).root is None
+
+    # Environment variable path
+    monkeypatch.setenv("LDS_STUDY_ROOT", "")
+    assert Settings().root is None
+
+    got = get_settings()
+    assert got.root == repo_root()
+    assert got.effective_root == repo_root()
+    assert (got.root / "configs" / "models.yaml").exists()
+    assert got.root != tmp_path
+    assert got.root != Path(".")
+
+
 def test_get_settings_honors_explicit_root(tmp_path: Path, monkeypatch) -> None:
     from lds_study.config import Settings, get_settings
 
@@ -118,7 +159,7 @@ def test_get_settings_honors_explicit_root(tmp_path: Path, monkeypatch) -> None:
     settings = Settings()
     assert settings.root == tmp_path
     got = get_settings()
-    assert got.root == tmp_path
+    assert got.root == tmp_path.resolve()
 
 
 def test_check_env_allow_cpu() -> None:

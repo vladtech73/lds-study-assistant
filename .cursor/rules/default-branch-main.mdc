@@ -1,0 +1,12 @@
+---
+description: Use main as the default git branch; never initialize or push master.
+alwaysApply: true
+---
+
+# Default branch is `main`
+
+- When initializing a repo, use `git init -b main` (never rely on a `master` default).
+- Do not create, commit on, or push a `master` branch for this project.
+- If a local repo is already on `master` with no upstream, rename with `git branch -m main` before the first push.
+- Do not change the user’s global git config unless they explicitly ask; prefer per-command `-b main` / branch rename instead.
+- Treat `main` as the base branch for PRs and diffs (`main...HEAD`).
