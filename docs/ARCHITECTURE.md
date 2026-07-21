@@ -27,6 +27,7 @@ End-to-end map for the local LDS study assistant (CLI-only v1).
    - Bad citations: regenerate once → refuse (never silent strip).
 5. **`lds eval`** (PR4) — `eval/golden.yaml` (plus optional `golden.local.yaml`);
    writes `outputs/eval/{date}.md` comparison tables and suggested `rag.yaml` baselines.
+   Use [IMPROVEMENT_CYCLE.md](IMPROVEMENT_CYCLE.md) to iterate on config/data from those metrics.
 6. **Optional QLoRA** (PR5) — style adapter on redistributable-only data; keep only if eval does not regress.
 
 ## Where RAG and the optional adapter meet

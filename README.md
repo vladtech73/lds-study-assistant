@@ -86,6 +86,7 @@ pre-commit install
 ## Architecture
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): `prepare → index → ask` (+ optional eval/tune).
+To improve quality over time: [docs/IMPROVEMENT_CYCLE.md](docs/IMPROVEMENT_CYCLE.md).
 
 ## Legal
 
