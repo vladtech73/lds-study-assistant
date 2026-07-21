@@ -1,4 +1,4 @@
-# RAG / retrieval / citation thresholds (PR3 wires these; defaults are intentional guesses).
+# RAG / retrieval / citation thresholds (PR3 wires ask/index; PR4 sets eval baselines).
 
 chunking:
   scripture: verse_atomic   # one chunk per verse; never char-split scripture
@@ -11,13 +11,17 @@ retrieval:
   bm25_top_k: 50
   rrf_k: 60
   final_top_k: 8
-  # Compared to post-rerank scores (cross-encoder). Default 0.0 means no_evidence is
-  # rare until PR4 measures a real floor; identity/RRF scales differ — do not raise yet.
-  min_score: 0.0
+  # Measured from outputs/eval/2026-07-21-scores.md top-1 distributions:
+  #   adversarial p75=0.039 max=0.112; grounded p25=0.297 (overlap at the left tail).
+  # 0.05 blocks ~9/12 adversarial seeds while losing 1 low-score grounded (no recall hit).
+  # 0.12 fully separates adversarial but drops 2 recall-hit grounded items — too aggressive.
+  min_score: 0.05
   reranker_device: cpu
 
 citation:
-  min_coverage: 0.8         # guess until PR4 sets the real baseline
+  # Confirmed by PR4: ok answers cluster near 1.0; many lesson_planning fails sit
+  # 0.17–0.75. Keep 0.8 as the accept gate (not loosened to median of failures).
+  min_coverage: 0.8
   max_regenerate: 1         # regenerate once, then refuse — never silent strip
   marker_pattern: "\\[\\[([^\\]]+)\\]\\]"
 
@@ -25,3 +29,13 @@ ask:
   default_mode: study       # study | lesson | talk  (music deferred)
   temperature: 0.2
   retry_temperature: 0.0
+
+# Regression floors for PR5 hybrid / adapter keep-or-revert.
+# Pasted verbatim from harness output in outputs/eval/2026-07-21-r2.md
+# (run at retrieval.min_score: 0.05; do not hand-edit).
+eval:
+  recall_k: 8
+  baselines:
+    min_recall_at_k: 0.711
+    min_citation_validity: 0.9
+    min_adversarial_refusal: 0.825

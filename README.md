@@ -60,6 +60,10 @@ Full Hugging Face generator weights (~28GB) are **not** pulled by default — on
 .\.venv\Scripts\python.exe -m lds_study.cli ask "What does Alma teach about experimenting upon the word?"
 # Useful flags: --mode study|lesson|talk  --strict  --show-context  --json
 # Filters: --volume bofm --book alma --source-type scripture --date-from/--date-to
+
+# Golden eval (PR4) — comparison report under outputs/eval/ (markdown committed; JSON local)
+.\.venv\Scripts\python.exe -m lds_study.cli eval --profile default --models qwen2.5:14b,qwen3:14b
+# Fast recall-only: --retrieval-only   Subset: --buckets verse_lookup --limit 5
 ```
 
 ### Answer statuses and exit codes

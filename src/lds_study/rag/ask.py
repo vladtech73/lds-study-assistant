@@ -9,7 +9,7 @@ from rich.console import Console
 
 from lds_study.config import Settings, get_settings
 from lds_study.data.models import Chunk
-from lds_study.index.base import RetrievalFilters, RetrievedHit, Retriever
+from lds_study.index.base import RetrievalFilters, RetrievalResult, RetrievedHit, Retriever
 from lds_study.index.build import load_retriever
 from lds_study.rag.citations import (
     CANNED_NO_EVIDENCE,
@@ -60,6 +60,8 @@ def run_ask(
     settings: Settings | None = None,
     retriever: Retriever | None = None,
     generator: Generator | None = None,
+    emit: bool = True,
+    retrieval: RetrievalResult | None = None,
 ) -> AskResult:
     settings = settings or get_settings()
     models_cfg = settings.load_yaml("models.yaml")
@@ -79,12 +81,16 @@ def run_ask(
         marker_pattern=str(cite_raw.get("marker_pattern") or r"\[\[([^\]]+)\]\]"),
     )
 
-    if retriever is None:
-        retriever = load_retriever(profile=profile, settings=settings, verbose=verbose)
-    if generator is None:
-        generator = build_ollama_generator(models_cfg, settings.ollama_host)
+    if retrieval is None:
+        if retriever is None:
+            retriever = load_retriever(profile=profile, settings=settings, verbose=verbose)
+        if generator is None:
+            generator = build_ollama_generator(models_cfg, settings.ollama_host)
+        retrieval = retriever.retrieve(question, filters=filters)
+    else:
+        if generator is None:
+            generator = build_ollama_generator(models_cfg, settings.ollama_host)
 
-    retrieval = retriever.retrieve(question, filters=filters)
     seed_hits = [h for h in retrieval.hits if h.source != "expand"]
     qualifying_seeds = [h for h in seed_hits if h.score >= min_score]
 
@@ -108,7 +114,8 @@ def run_ask(
             attempts=0,
             peak_vram_gb=retrieval.peak_vram_gb,
         )
-        _emit(result, as_json=as_json)
+        if emit:
+            _emit(result, as_json=as_json)
         return result
 
     # Keep seed hits plus expand neighbors whose seed still qualifies.
@@ -155,7 +162,8 @@ def run_ask(
                 attempts=attempts,
                 peak_vram_gb=retrieval.peak_vram_gb,
             )
-            _emit(result, as_json=as_json)
+            if emit:
+                _emit(result, as_json=as_json)
             return result
         if passes_citation_gate(report, cite_cfg):
             result = AskResult(
@@ -170,7 +178,8 @@ def run_ask(
                 attempts=attempts,
                 peak_vram_gb=retrieval.peak_vram_gb,
             )
-            _emit(result, as_json=as_json)
+            if emit:
+                _emit(result, as_json=as_json)
             return result
 
     listing = _plain_source_list(hits)
@@ -186,7 +195,8 @@ def run_ask(
         attempts=attempts,
         peak_vram_gb=retrieval.peak_vram_gb,
     )
-    _emit(result, as_json=as_json)
+    if emit:
+        _emit(result, as_json=as_json)
     return result
 
 

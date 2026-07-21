@@ -25,7 +25,8 @@ End-to-end map for the local LDS study assistant (CLI-only v1).
 3. **`lds index`** — embed + BM25; persist Chroma under `indexes/`. Generator unloaded while embedding.
 4. **`lds ask`** — hybrid retrieve → generate with citation markers → validate against retrieved set.
    - Bad citations: regenerate once → refuse (never silent strip).
-5. **`lds eval`** (PR4) — golden questions; set regression baselines.
+5. **`lds eval`** (PR4) — `eval/golden.yaml` (plus optional `golden.local.yaml`);
+   writes `outputs/eval/{date}.md` comparison tables and suggested `rag.yaml` baselines.
 6. **Optional QLoRA** (PR5) — style adapter on redistributable-only data; keep only if eval does not regress.
 
 ## Where RAG and the optional adapter meet

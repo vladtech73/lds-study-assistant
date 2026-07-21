@@ -37,6 +37,12 @@ outputs/**
 !outputs/eval/**/*.md
 adapters/
 
+# Local-only golden questions over restricted / BYOF sources (never commit).
+eval/golden.local.yaml
+
+# Personal-use tooling only (local Conference fetch, etc.). Never commit.
+private/
+
 # Data: ignore everything under data/, then allow structural files only
 data/**
 !data/**/

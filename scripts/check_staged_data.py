@@ -5,6 +5,8 @@ Allowlist (must stay tight — review any change carefully):
   - data/**/.gitkeep, data/README.md, data/raw/user/EXAMPLE.meta.json
   - indexes/.gitkeep, models/.gitkeep
   - outputs/.gitkeep, outputs/eval/.gitkeep, outputs/eval/**/*.md  (PR4 reports)
+Denylist (always reject):
+  - private/**, eval/golden.local.yaml, eval/*.local.yaml
 
 Usage:
   python scripts/check_staged_data.py              # git staged files (fails closed if git broken)
@@ -19,7 +21,15 @@ import shutil
 import subprocess
 import sys
 
-MONITORED_PREFIXES = ("data/", "indexes/", "models/", "outputs/")
+# private/ is fully gitignored personal tooling; reject if force-staged.
+# eval/*.local.yaml holds BYOF / restricted-source golden questions — never commit.
+MONITORED_PREFIXES = ("data/", "indexes/", "models/", "outputs/", "private/")
+
+# Exact paths / globs that are always denied (even outside MONITORED_PREFIXES).
+DENYLIST_PATTERNS = (
+    "eval/golden.local.yaml",
+    "eval/*.local.yaml",
+)
 
 ALLOWLIST_PATTERNS = (
     "data/**/.gitkeep",
@@ -51,6 +61,11 @@ def normalize(path: str) -> str:
 def is_monitored(path: str) -> bool:
     p = normalize(path)
     return any(p == prefix.rstrip("/") or p.startswith(prefix) for prefix in MONITORED_PREFIXES)
+
+
+def is_denied(path: str) -> bool:
+    p = normalize(path)
+    return any(fnmatch.fnmatch(p, pattern) for pattern in DENYLIST_PATTERNS)
 
 
 def is_allowed(path: str) -> bool:
@@ -96,7 +111,9 @@ def staged_paths() -> list[str]:
 def check_paths(paths: list[str]) -> list[str]:
     bad: list[str] = []
     for path in paths:
-        if is_monitored(path) and not is_allowed(path):
+        if is_denied(path):
+            bad.append(normalize(path))
+        elif is_monitored(path) and not is_allowed(path):
             bad.append(normalize(path))
     return bad
 
@@ -128,7 +145,8 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "\nAllowed structural paths only: data/**/.gitkeep, data/README.md, "
             "data/raw/user/EXAMPLE.meta.json, indexes/.gitkeep, models/.gitkeep, "
-            "outputs/.gitkeep, outputs/eval/.gitkeep, outputs/eval/*.md (and nested)."
+            "outputs/.gitkeep, outputs/eval/.gitkeep, outputs/eval/*.md (and nested). "
+            "Never stage private/ or eval/*.local.yaml (restricted / BYOF goldens)."
         )
         return 1
 

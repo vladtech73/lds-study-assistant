@@ -1,4 +1,4 @@
-"""Typer CLI entrypoint. PR1: pull-models; PR2: prepare; PR3: index + ask."""
+"""Typer CLI entrypoint. PR1–PR4: pull-models | prepare | index | ask | eval."""
 
 from __future__ import annotations
 
@@ -15,14 +15,6 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 console = Console()
-
-
-def _not_yet(pr: str, name: str) -> None:
-    console.print(
-        f"[yellow]{name}[/yellow] is not implemented yet "
-        f"(planned for [bold]{pr}[/bold]). See docs/ARCHITECTURE.md."
-    )
-    raise typer.Exit(code=1)
 
 
 @app.callback()
@@ -194,9 +186,77 @@ def ask(
 
 
 @app.command("eval")
-def eval_cmd() -> None:
-    """Run golden-question eval (PR4)."""
-    _not_yet("PR4", "eval")
+def eval_cmd(
+    profile: str = typer.Option("default", "--profile", help="Index profile name"),
+    models: Optional[str] = typer.Option(
+        None,
+        "--models",
+        help="Comma-separated Ollama model ids (default: full shortlist in models.yaml)",
+    ),
+    k: Optional[int] = typer.Option(
+        None,
+        "--k",
+        help="Recall@k cutoff (default: rag.eval.recall_k); must be <= retrieval.final_top_k",
+    ),
+    buckets: Optional[str] = typer.Option(
+        None,
+        "--buckets",
+        help="Comma-separated buckets: verse_lookup,doctrinal_synthesis,"
+        "lesson_planning,adversarial",
+    ),
+    limit: Optional[int] = typer.Option(
+        None, "--limit", help="Evaluate only the first N questions (after filters)"
+    ),
+    retrieval_only: bool = typer.Option(
+        False,
+        "--retrieval-only",
+        help="Skip generation; compute recall@k only (fast, offline-friendly)",
+    ),
+    include_local: bool = typer.Option(
+        True,
+        "--include-local/--no-local",
+        help="Also load gitignored eval/golden.local.yaml when present",
+    ),
+    stem: Optional[str] = typer.Option(
+        None,
+        "--stem",
+        help="Report filename stem under outputs/eval/ (default: today's date)",
+    ),
+) -> None:
+    """Run golden-question eval; write outputs/eval/{date}.md (+ JSON sidecar)."""
+    from lds_study.eval.run import run_eval
+
+    model_list = (
+        [m.strip() for m in models.split(",") if m.strip()] if models else None
+    )
+    bucket_list = (
+        [b.strip() for b in buckets.split(",") if b.strip()] if buckets else None
+    )
+    try:
+        result = run_eval(
+            profile=profile,
+            models=model_list,
+            k=k,
+            buckets=bucket_list,
+            limit=limit,
+            include_local=include_local,
+            retrieval_only=retrieval_only,
+            stem=stem,
+        )
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        console.print("eval failed:", str(exc), style="red")
+        raise typer.Exit(code=1) from exc
+
+    console.print(f"[green]Wrote[/green] {result.md_path}")
+    console.print(f"JSON sidecar -> {result.json_path}")
+    for agg in result.aggregates:
+        console.print(
+            f"  {agg.model}: recall={agg.recall_at_k} "
+            f"cite={agg.citation_validity_rate} "
+            f"refuse={agg.adversarial_refusal_rate}"
+        )
+    if result.suggested_baselines:
+        console.print("Suggested baselines:", result.suggested_baselines)
 
 
 if __name__ == "__main__":
