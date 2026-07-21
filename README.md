@@ -49,7 +49,28 @@ pip install --index-url https://download.pytorch.org/whl/cu128 torch
 Full Hugging Face generator weights (~28GB) are **not** pulled by default — only with
 `--include-finetune-weights` (QLoRA / PR5; see [docs/FINETUNE_WINDOWS.md](docs/FINETUNE_WINDOWS.md)).
 
-`prepare` writes `data/processed/chunks.jsonl` (gitignored). Index + ask arrive in PR3.
+`prepare` writes `data/processed/chunks.jsonl` (gitignored).
+
+```powershell
+# Embed + BM25 under indexes/default/ (gitignored). Unloads Ollama first.
+.\.venv\Scripts\python.exe -m lds_study.cli index --profile default --verbose
+# Optional: 10/10 phrase smoke on the full corpus (IdentityReranker; real BGE-M3 required)
+# .\.venv\Scripts\python.exe -m lds_study.cli index --profile default --smoke
+
+.\.venv\Scripts\python.exe -m lds_study.cli ask "What does Alma teach about experimenting upon the word?"
+# Useful flags: --mode study|lesson|talk  --strict  --show-context  --json
+# Filters: --volume bofm --book alma --source-type scripture --date-from/--date-to
+```
+
+### Answer statuses and exit codes
+
+| Status | Exit | Meaning |
+|---|---|---|
+| `ok` | 0 | Answer returned; every `[[chunk_id]]` is in the retrieved set and coverage ≥ `citation.min_coverage` |
+| `unsupported` | 2 | Citation gate still failing after one regenerate (or immediately with `--strict`); sources listed, no synthesized prose |
+| `no_evidence` | 3 | Nothing retrieved above `retrieval.min_score` — refuse before generating |
+
+Hardware note: quantized KV cache (`kv_cache_quant` in `configs/models.yaml`) is **server-side** — set `OLLAMA_KV_CACHE_TYPE=q8_0` in the Ollama environment.
 
 Optional pre-commit (copyright gate on every commit):
 

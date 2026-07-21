@@ -24,10 +24,10 @@ dependencies = [
   "lxml>=5.0",
   # RAG stack (base install — no [rag] extra)
   "llama-index-core>=0.11",
-  "llama-index-vector-stores-chroma>=0.2",
   "llama-index-embeddings-huggingface>=0.3",
   "chromadb>=0.5",
   "rank-bm25>=0.2",
+  "sentence-transformers>=2.6",
 ]
 
 [project.optional-dependencies]

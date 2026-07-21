@@ -11,7 +11,9 @@ retrieval:
   bm25_top_k: 50
   rrf_k: 60
   final_top_k: 8
-  min_score: 0.0            # raise after PR4 eval
+  # Compared to post-rerank scores (cross-encoder). Default 0.0 means no_evidence is
+  # rare until PR4 measures a real floor; identity/RRF scales differ — do not raise yet.
+  min_score: 0.0
   reranker_device: cpu
 
 citation:

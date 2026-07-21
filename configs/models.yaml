@@ -10,6 +10,7 @@ generator:
   backend: "ollama"   # ollama | llama.cpp (vLLM is Linux/WSL2 only — not supported on native Windows)
   num_ctx: 8192
   keep_alive: "5m"
+  # Server-side only — set via env `OLLAMA_KV_CACHE_TYPE=q8_0` (not a per-request option).
   kv_cache_quant: "q8_0"
   adapter: null       # path to LoRA/GGUF adapter after PR5; null = base model
 
