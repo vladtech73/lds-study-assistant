@@ -2,7 +2,9 @@
 # Change IDs here; scripts/pull_models.py and the RAG path read this file.
 
 generator:
-  # Interim default (PR1–PR3). Promote Qwen3-14B only after PR4 lds eval.
+  # PR4 eval (outputs/eval/2026-07-21.md): qwen3:14b edged citation validity
+  # (72% vs 70%); recall@8 and adversarial refusal tied. Keep Qwen2.5 as interim
+  # default until adversarial refusal improves (both at 33% with min_score 0.0).
   id: "qwen2.5:14b"
   hf_id: "Qwen/Qwen2.5-14B-Instruct"  # pulled only with --include-finetune-weights
   # Documentation-only: Ollama tag already selects quant; not read by pull_models yet.

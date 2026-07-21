@@ -29,7 +29,10 @@
 
 ## Evaluation data
 
-- See `lds eval` reports under `outputs/eval/` (reports only; no corpus)
+- Harness: `lds eval` over `eval/golden.yaml` (see `eval/README.md`)
+- Latest comparison: [outputs/eval/2026-07-21-r2.md](outputs/eval/2026-07-21-r2.md)
+  (qwen2.5:14b vs qwen3:14b at `min_score: 0.05`; harness-emitted baselines)
+- Score calibration: [outputs/eval/2026-07-21-scores.md](outputs/eval/2026-07-21-scores.md)
 
 ## Known limitations
 

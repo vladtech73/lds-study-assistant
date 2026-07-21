@@ -98,6 +98,25 @@ def test_allowlist_rejects_non_eval_outputs() -> None:
     assert code.returncode == 1
 
 
+def test_denylist_rejects_golden_local_and_private() -> None:
+    code = subprocess.run(
+        [
+            sys.executable,
+            str(CHECK),
+            "--paths",
+            "eval/golden.local.yaml",
+            "private/fetch_conference.py",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+    )
+    assert code.returncode == 1
+    assert "eval/golden.local.yaml" in code.stdout
+    assert "private/fetch_conference.py" in code.stdout
+
+
 def test_staged_paths_fail_closed_when_git_errors() -> None:
     import scripts.check_staged_data as gate
 
