@@ -45,12 +45,14 @@ tone/format only. Hybrid is off until PR5 and only kept if PR4 metrics hold.
 | Path | Role |
 |---|---|
 | `src/lds_study/data/` | Loaders, normalize, chunk (PR2) |
-| `src/lds_study/index/` | Retriever protocol + LlamaIndex/Chroma backend (PR3) |
-| `src/lds_study/rag/` | Prompt, generate, citations (PR3) |
+| `src/lds_study/index/` | Retriever protocol + Chroma dense store, BM25, hybrid (PR3) |
+| `src/lds_study/rag/` | Prompt, generate, citations, `lds ask` (PR3) |
 | `src/lds_study/eval/` | Golden harness (PR4) |
 | `src/lds_study/finetune/` | Dataset + QLoRA (PR5) |
 
-LlamaIndex is confined to `index/backend_llamaindex.py` behind `index/base.py`.
+LlamaIndex is used only for the HuggingFace embedding wrapper in `index/embedder.py`.
+Dense storage is plain `chromadb`; sparse is `rank-bm25`. Index directories under
+`indexes/` are local and not portable/untrusted-safe (BM25 uses pickle).
 
 ## Deferred (post-v1)
 
