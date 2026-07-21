@@ -18,6 +18,10 @@ dependencies = [
   "pyyaml>=6.0",
   "huggingface-hub>=0.24",
   "rich>=13.7",
+  # Data prep (PR2) — ePub / PDF BYOF loaders
+  "ebooklib>=0.18",
+  "pypdf>=4.0",
+  "lxml>=5.0",
   # RAG stack (base install — no [rag] extra)
   "llama-index-core>=0.11",
   "llama-index-vector-stores-chroma>=0.2",

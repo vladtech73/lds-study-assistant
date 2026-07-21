@@ -1,0 +1,12 @@
+mirror: beandog/lds-scriptures@2020.12.08
+source_file: json/lds-scriptures-json.txt
+sha256: 8797555ccdf4a4d3f5846211aa6ff2b5bb74e97c3264ce48e2ec0933b13bd7e8
+volumes:
+  ot: 23145
+  nt: 7957
+  bofm: 6604
+  dc: 3654
+  pgp: 635
+total: 41995
+notes: Counts from nephi public-domain JSON after excluding no Official Declarations
+  (none present in this dump).

@@ -22,8 +22,27 @@ It is incorrect to say “the standard works are public domain” as a blanket c
 3. Normalization **strips** headings, footnotes, and study aids before indexing.
 4. Mirror provenance is only as good as the mirror’s claims — treat as a residual risk.
 
-PR2 fills concrete `license_url` / `verified_on` values when a mirror is chosen.
-Until then, `configs/sources.yaml` stays empty / unverified.
+## Chosen public-domain mirror (PR2)
+
+| Field | Value |
+|---|---|
+| Mirror | [scriptures.nephi.org](https://scriptures.nephi.org/) / `beandog/lds-scriptures` |
+| Tag / dump | `2020.12.08` |
+| Artifact | `json/lds-scriptures-json.txt` (verse-only JSON array) |
+| SHA-256 | `8797555ccdf4a4d3f5846211aa6ff2b5bb74e97c3264ce48e2ec0933b13bd7e8` |
+| Verified on | 2026-07-20 |
+| License claim | Project states scriptures, original works, and documentation are **public domain** in the USA |
+| Apparatus | Dump **omits** chapter headings, footnotes, Topical Guide, Bible Dictionary, indexes |
+| Official Declarations | **None present** in this dump (avoids the post-1920 OD-2 question for v1) |
+
+Expected per-volume verse counts for this dump are committed in
+`configs/verse_counts.yaml` (`total: 41995`). `lds prepare --scripture-only` should
+match those counts when the full artifact is present under `data/raw/public/`.
+
+**Residual risk:** we trust the mirror’s provenance claims; we do not independently
+re-derive the text from 19th-century printings. If a future dump adds modern apparatus
+or Official Declarations, refuse or strip before indexing and bump `verified_on` only
+after a human review.
 
 ## Church-copyrighted materials
 
@@ -31,7 +50,7 @@ General Conference talks and Come, Follow Me manuals are © Intellectual Reserve
 
 - **Bring-your-own-files only** under `data/raw/user/` (gitignored).
 - Never commit, never publish embeddings/adapters/datasets derived from them.
-- `redistributable: false` is enforced in code (PR2+) with **no override flag**.
+- `redistributable: false` is enforced in code with **no override flag**.
 
 ## Scraping
 

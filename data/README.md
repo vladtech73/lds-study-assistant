@@ -6,11 +6,14 @@ Local corpora and processed artifacts live here. **Almost everything is gitignor
 
 ```text
 data/
-  raw/public/     # license-verified downloads (PR2)
+  raw/public/     # license-verified downloads + MANIFEST.json (sha256 + URL + time)
   raw/user/       # BYOF Conference / Come Follow Me — never commit
-  processed/      # chunks.jsonl, stats (gitignored)
+  processed/      # chunks.jsonl, prepare_stats.json (gitignored)
 ```
 
+`lds prepare` reads `configs/sources.yaml`, refuses `license: unverified`, and writes
+verse-atomic scripture chunks plus heading-aware prose chunks. Sources marked
+`redistributable: false` stay under gitignored `data/` and are excluded from any export.
 ## Allowlisted tracked files only
 
 - `data/**/.gitkeep`

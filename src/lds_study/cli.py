@@ -1,6 +1,8 @@
-"""Typer CLI entrypoint. Full commands land in later PRs; PR1 wires pull-models."""
+"""Typer CLI entrypoint. PR1: pull-models; PR2: prepare; later PRs fill the rest."""
 
 from __future__ import annotations
+
+from typing import Optional
 
 import typer
 from rich.console import Console
@@ -58,9 +60,49 @@ def pull_models(
 
 
 @app.command("prepare")
-def prepare() -> None:
-    """Ingest sources into chunks (PR2)."""
-    _not_yet("PR2", "prepare")
+def prepare(
+    stats: bool = typer.Option(False, "--stats", help="Print per-source chunk stats"),
+    refresh: bool = typer.Option(
+        False,
+        "--refresh",
+        help="Accept a new download sha256 deliberately (otherwise hash drift fails).",
+    ),
+    scripture_only: bool = typer.Option(
+        False,
+        "--scripture-only",
+        help="Only run public_scripture loaders (skip BYOF user files).",
+    ),
+    source: Optional[list[str]] = typer.Option(
+        None,
+        "--source",
+        help="Limit to one or more source ids from configs/sources.yaml (repeatable).",
+    ),
+) -> None:
+    """Ingest sources into data/processed/chunks.jsonl."""
+    from lds_study.data.manifest import ManifestError, UnverifiedSourceError
+    from lds_study.data.prepare import run_prepare
+
+    try:
+        result = run_prepare(
+            source_ids=source,
+            scripture_only=scripture_only,
+            refresh=refresh,
+            show_stats=stats,
+        )
+    except (UnverifiedSourceError, ManifestError) as exc:
+        console.print(f"[red]prepare failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    console.print(
+        f"[green]Wrote[/green] {len(result.chunks)} chunks → {result.chunks_path}"
+    )
+    if result.empty_total:
+        console.print(
+            f"[yellow]Dropped {result.empty_total} empty record(s)[/yellow] "
+            f"(see {result.stats_path})"
+        )
+    else:
+        console.print(f"Stats → {result.stats_path} (zero empty chunks)")
 
 
 @app.command("index")
