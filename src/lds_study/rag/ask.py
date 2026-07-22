@@ -85,11 +85,15 @@ def run_ask(
         if retriever is None:
             retriever = load_retriever(profile=profile, settings=settings, verbose=verbose)
         if generator is None:
-            generator = build_ollama_generator(models_cfg, settings.ollama_host)
+            generator = build_ollama_generator(
+                models_cfg, settings.ollama_host, root=settings.effective_root
+            )
         retrieval = retriever.retrieve(question, filters=filters)
     else:
         if generator is None:
-            generator = build_ollama_generator(models_cfg, settings.ollama_host)
+            generator = build_ollama_generator(
+                models_cfg, settings.ollama_host, root=settings.effective_root
+            )
 
     seed_hits = [h for h in retrieval.hits if h.source != "expand"]
     qualifying_seeds = [h for h in seed_hits if h.score >= min_score]

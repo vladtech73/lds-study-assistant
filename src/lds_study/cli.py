@@ -1,7 +1,8 @@
-"""Typer CLI entrypoint. PR1–PR4: pull-models | prepare | index | ask | eval."""
+"""Typer CLI entrypoint. PR1–PR5: pull-models | prepare | index | ask | eval | finetune-*."""
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 import typer
@@ -222,6 +223,14 @@ def eval_cmd(
         "--stem",
         help="Report filename stem under outputs/eval/ (default: today's date)",
     ),
+    check_baselines: bool = typer.Option(
+        False,
+        "--check-baselines",
+        help=(
+            "PR5 keep-or-revert: compare each model to configs/rag.yaml "
+            "eval.baselines; exit 1 if any REVERT."
+        ),
+    ),
 ) -> None:
     """Run golden-question eval; write outputs/eval/{date}.md (+ JSON sidecar)."""
     from lds_study.eval.run import run_eval
@@ -242,6 +251,7 @@ def eval_cmd(
             include_local=include_local,
             retrieval_only=retrieval_only,
             stem=stem,
+            check_baselines=check_baselines,
         )
     except (FileNotFoundError, ValueError, RuntimeError) as exc:
         console.print("eval failed:", str(exc), style="red")
@@ -257,6 +267,110 @@ def eval_cmd(
         )
     if result.suggested_baselines:
         console.print("Suggested baselines:", result.suggested_baselines)
+    if result.baseline_verdicts:
+        console.print("Keep-or-revert vs eval.baselines:")
+        any_revert = False
+        for model, (ok, failures) in result.baseline_verdicts.items():
+            if ok:
+                console.print(f"  {model}: [green]KEEP[/green]")
+            else:
+                any_revert = True
+                console.print(f"  {model}: [red]REVERT[/red] — {'; '.join(failures)}")
+        if any_revert:
+            raise typer.Exit(code=1)
+
+
+@app.command("finetune-dataset")
+def finetune_dataset(
+    chunks: Optional[Path] = typer.Option(
+        None, "--chunks", help="Input chunks.jsonl (default: data/processed/chunks.jsonl)"
+    ),
+    output: Optional[Path] = typer.Option(
+        None, "--output", help="Output SFT JSONL (default: data/processed/sft.jsonl)"
+    ),
+    max_pairs: Optional[int] = typer.Option(
+        None, "--max-pairs", help="Cap pairs for a debug train slice"
+    ),
+) -> None:
+    """Build ShareGPT SFT pairs from redistributable sources only (PR5)."""
+    from lds_study.finetune.build_dataset import build_sft_dataset
+
+    try:
+        result = build_sft_dataset(
+            chunks_path=chunks,
+            output_path=output,
+            max_pairs=max_pairs,
+        )
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        console.print("finetune-dataset failed:", str(exc), style="red")
+        raise typer.Exit(code=1) from exc
+    console.print(
+        f"[green]Wrote[/green] {result.pairs_written} pairs → {result.output_path} "
+        f"(restricted_dropped={result.restricted_dropped})"
+    )
+
+
+@app.command("finetune-train")
+def finetune_train(
+    data: Optional[Path] = typer.Option(None, "--data", help="SFT JSONL path"),
+    output: Optional[Path] = typer.Option(
+        None, "--output", help="Adapter output dir (default: adapters/lds-qlora)"
+    ),
+    base_model: Optional[str] = typer.Option(
+        None, "--base-model", help="HF id override (default: generator.hf_id)"
+    ),
+    max_steps: Optional[int] = typer.Option(
+        None, "--max-steps", help="Debug slice (e.g. 20)"
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Validate dataset only (no Unsloth / GPU).",
+    ),
+) -> None:
+    """QLoRA train via Unsloth (requires ``pip install -e '.[finetune]'``)."""
+    from lds_study.finetune.train_qlora import main as train_main
+
+    argv: list[str] = []
+    if data is not None:
+        argv.extend(["--data", str(data)])
+    if output is not None:
+        argv.extend(["--output", str(output)])
+    if base_model:
+        argv.extend(["--base-model", base_model])
+    if max_steps is not None:
+        argv.extend(["--max-steps", str(max_steps)])
+    if dry_run:
+        argv.append("--dry-run")
+    code = train_main(argv)
+    raise typer.Exit(code)
+
+
+@app.command("finetune-export")
+def finetune_export(
+    adapter: Optional[Path] = typer.Option(
+        None, "--adapter", help="Adapter dir (default: adapters/lds-qlora)"
+    ),
+    ollama_tag: str = typer.Option(
+        "lds-study-adapter", "--ollama-tag", help="Ollama model name after create"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Write Modelfile + ollama_tag only"
+    ),
+    skip_ollama: bool = typer.Option(False, "--skip-ollama"),
+) -> None:
+    """Merge adapter, export GGUF, register with Ollama for hybrid ask."""
+    from lds_study.finetune.merge_and_export import main as export_main
+
+    argv: list[str] = ["--ollama-tag", ollama_tag]
+    if adapter is not None:
+        argv.extend(["--adapter", str(adapter)])
+    if dry_run:
+        argv.append("--dry-run")
+    if skip_ollama:
+        argv.append("--skip-ollama")
+    code = export_main(argv)
+    raise typer.Exit(code)
 
 
 if __name__ == "__main__":

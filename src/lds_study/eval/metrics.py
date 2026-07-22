@@ -198,6 +198,38 @@ def suggested_baselines(aggs: Sequence[AggregateMetrics]) -> dict[str, float]:
     return out
 
 
+def meets_regression_baselines(
+    agg: AggregateMetrics,
+    baselines: dict[str, float],
+) -> tuple[bool, list[str]]:
+    """PR5 keep-or-revert gate: citation validity + adversarial refusal (+ recall).
+
+    Returns ``(ok, failure_messages)``. A style adapter that loses groundedness
+    or refusal quality is a regression, not a tradeoff.
+    """
+    failures: list[str] = []
+    cite_floor = baselines.get("min_citation_validity")
+    if cite_floor is not None:
+        got = agg.citation_validity_rate
+        if got is None or got < float(cite_floor):
+            failures.append(
+                f"citation_validity {got} < min_citation_validity {cite_floor}"
+            )
+    refuse_floor = baselines.get("min_adversarial_refusal")
+    if refuse_floor is not None:
+        got = agg.adversarial_refusal_rate
+        if got is None or got < float(refuse_floor):
+            failures.append(
+                f"adversarial_refusal {got} < min_adversarial_refusal {refuse_floor}"
+            )
+    recall_floor = baselines.get("min_recall_at_k")
+    if recall_floor is not None:
+        got = agg.recall_at_k
+        if got is None or got < float(recall_floor):
+            failures.append(f"recall_at_k {got} < min_recall_at_k {recall_floor}")
+    return (not failures), failures
+
+
 def score_distribution(
     items: Sequence[ItemMetrics],
 ) -> dict[str, Any]:

@@ -25,7 +25,9 @@
 ## Training data (when Option B is used)
 
 - Instruction pairs from sources marked `redistributable: true` with verified licenses only
+  (`lds finetune-dataset` → `data/processed/sft.jsonl`)
 - **Never** Conference talks or Come Follow Me
+- Adapters trained on restricted material must **not** be published
 
 ## Evaluation data
 
@@ -33,6 +35,7 @@
 - Latest comparison: [outputs/eval/2026-07-21-r2.md](outputs/eval/2026-07-21-r2.md)
   (qwen2.5:14b vs qwen3:14b at `min_score: 0.05`; harness-emitted baselines)
 - Score calibration: [outputs/eval/2026-07-21-scores.md](outputs/eval/2026-07-21-scores.md)
+- PR5 keep-or-revert: compare adapter eval against `configs/rag.yaml` `eval.baselines`
 
 ## Known limitations
 

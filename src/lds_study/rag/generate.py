@@ -6,11 +6,55 @@ import json
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 from rich.console import Console
 
 console = Console()
+
+
+def resolve_generator_model_id(models_cfg: dict, *, root: Path | None = None) -> str:
+    """Resolve Ollama model id, honoring optional ``generator.adapter``.
+
+    ``adapter`` may be:
+    - ``null`` / empty — use ``generator.id``
+    - a directory containing ``ollama_tag`` (written by merge_and_export)
+    - an Ollama model tag string (no path separators, or a non-existent path)
+    """
+    gen = models_cfg.get("generator") or {}
+    base_id = str(gen.get("id") or "").strip()
+    if not base_id:
+        raise ValueError("generator.id missing in configs/models.yaml")
+
+    raw = gen.get("adapter")
+    if raw is None:
+        return base_id
+    adapter = str(raw).strip()
+    if not adapter or adapter.lower() in {"null", "none"}:
+        return base_id
+
+    candidate = Path(adapter)
+    if root is not None and not candidate.is_absolute():
+        candidate = (root / candidate).resolve()
+    else:
+        candidate = candidate.expanduser()
+        if not candidate.is_absolute():
+            candidate = candidate.resolve()
+
+    if candidate.is_dir():
+        tag_file = candidate / "ollama_tag"
+        if tag_file.is_file():
+            tag = tag_file.read_text(encoding="utf-8").strip()
+            if tag:
+                return tag
+        raise ValueError(
+            f"generator.adapter directory {candidate} has no ollama_tag file. "
+            "Run merge_and_export.py (or set adapter to an Ollama model name)."
+        )
+
+    # Treat as Ollama tag (e.g. lds-study-adapter).
+    return adapter
 
 
 class Generator(Protocol):
@@ -86,11 +130,14 @@ class ScriptedGenerator:
         return self.replies.pop(0)
 
 
-def build_ollama_generator(models_cfg: dict, host: str) -> OllamaGenerator:
+def build_ollama_generator(
+    models_cfg: dict,
+    host: str,
+    *,
+    root: Path | None = None,
+) -> OllamaGenerator:
     gen = models_cfg.get("generator") or {}
-    model = str(gen.get("id") or "")
-    if not model:
-        raise ValueError("generator.id missing in configs/models.yaml")
+    model = resolve_generator_model_id(models_cfg, root=root)
     return OllamaGenerator(
         host=host,
         model=model,

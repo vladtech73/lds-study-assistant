@@ -64,6 +64,25 @@ def test_allowlist_rejects_indexes_and_models() -> None:
     assert code.returncode == 1
 
 
+def test_allowlist_rejects_adapters() -> None:
+    """PR5: force-staged adapter dirs must fail the copyright gate (no allowlist)."""
+    code = subprocess.run(
+        [
+            sys.executable,
+            str(CHECK),
+            "--paths",
+            "adapters/lds-qlora/Modelfile",
+            "adapters/lds-qlora/train_config.json",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+    )
+    assert code.returncode == 1
+    assert "adapters/lds-qlora/Modelfile" in code.stdout
+
+
 def test_allowlist_allows_eval_markdown() -> None:
     """PR4 eval reports under outputs/eval/**/*.md are allowlisted."""
     code = subprocess.run(
