@@ -26,6 +26,7 @@ from lds_study.eval.metrics import (
     aggregate,
     coverage_stats,
     is_refusal_status,
+    meets_regression_baselines,
     recall_at_k,
     score_distribution,
     suggest_min_score,
@@ -40,7 +41,7 @@ from lds_study.eval.report import (
 from lds_study.index.base import RetrievalResult, Retriever
 from lds_study.index.build import load_retriever
 from lds_study.rag.ask import run_ask
-from lds_study.rag.generate import Generator, OllamaGenerator, build_ollama_generator
+from lds_study.rag.generate import Generator, OllamaGenerator
 
 console = Console()
 
@@ -60,6 +61,9 @@ class EvalResult:
     golden_local_hash: str | None = None
     source_counts: dict[str, int] = field(default_factory=dict)
     recall_shared: float | None = None
+    # PR5 keep-or-revert: model -> (keep: bool, failures: list[str])
+    baseline_verdicts: dict[str, tuple[bool, list[str]]] = field(default_factory=dict)
+    baselines_checked: dict[str, float] = field(default_factory=dict)
 
 
 def _build_generator_for_model(
@@ -67,13 +71,17 @@ def _build_generator_for_model(
     models_cfg: dict,
     host: str,
 ) -> OllamaGenerator:
-    """Clone models.yaml generator settings with an overridden Ollama model id."""
-    base = build_ollama_generator(models_cfg, host)
+    """Clone models.yaml generator settings with an overridden Ollama model id.
+
+    Eval compares named shortlist tags and does not honor ``generator.adapter``
+    (adapter keep-or-revert is a separate single-model ask/eval with adapter set).
+    """
+    gen = models_cfg.get("generator") or {}
     return OllamaGenerator(
-        host=base.host,
+        host=host,
         model=model_id,
-        num_ctx=base.num_ctx,
-        keep_alive=base.keep_alive,
+        num_ctx=int(gen.get("num_ctx") or 8192),
+        keep_alive=str(gen.get("keep_alive") or "5m"),
     )
 
 
@@ -191,6 +199,7 @@ def run_eval(
     include_local: bool = True,
     retrieval_only: bool = False,
     stem: str | None = None,
+    check_baselines: bool = False,
     settings: Settings | None = None,
     retriever: Retriever | None = None,
     generators: dict[str, Generator] | None = None,
@@ -339,6 +348,20 @@ def run_eval(
     suggested_score = suggest_min_score(dist)
     cov = coverage_stats(items)
 
+    baseline_verdicts: dict[str, tuple[bool, list[str]]] = {}
+    floors: dict[str, float] = {}
+    if check_baselines:
+        raw_floors = eval_cfg.get("baselines") or {}
+        if not isinstance(raw_floors, dict) or not raw_floors:
+            raise ValueError(
+                "--check-baselines requires configs/rag.yaml eval.baselines "
+                "(citation validity / adversarial refusal floors from PR4)."
+            )
+        floors = {str(k): float(v) for k, v in raw_floors.items()}
+        for agg in aggs:
+            ok, failures = meets_regression_baselines(agg, floors)
+            baseline_verdicts[agg.model] = (ok, failures)
+
     out_dir = settings.resolve(settings.outputs_dir) / "eval"
     report_stem = stem or default_report_stem()
     md_path, json_path = report_paths(out_dir, report_stem)
@@ -401,4 +424,6 @@ def run_eval(
         golden_local_hash=golden_local_hash,
         source_counts=source_counts,
         recall_shared=recall_shared,
+        baseline_verdicts=baseline_verdicts,
+        baselines_checked=floors,
     )

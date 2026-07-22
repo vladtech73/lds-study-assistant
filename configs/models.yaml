@@ -2,9 +2,10 @@
 # Change IDs here; scripts/pull_models.py and the RAG path read this file.
 
 generator:
-  # PR4 eval (outputs/eval/2026-07-21.md): qwen3:14b edged citation validity
-  # (72% vs 70%); recall@8 and adversarial refusal tied. Keep Qwen2.5 as interim
-  # default until adversarial refusal improves (both at 33% with min_score 0.0).
+  # PR4 eval (outputs/eval/2026-07-21-r2.md at min_score 0.05): keep Qwen2.5-14B as
+  # default. qwen3:14b matched or edged citation validity but trailed adversarial
+  # refusal (9/12 vs 11/12). Hybrid adapter (PR5): set `adapter` to an Ollama tag or
+  # to an adapters/… directory that contains `ollama_tag` after finetune-export.
   id: "qwen2.5:14b"
   hf_id: "Qwen/Qwen2.5-14B-Instruct"  # pulled only with --include-finetune-weights
   # Documentation-only: Ollama tag already selects quant; not read by pull_models yet.
@@ -14,7 +15,7 @@ generator:
   keep_alive: "5m"
   # Server-side only — set via env `OLLAMA_KV_CACHE_TYPE=q8_0` (not a per-request option).
   kv_cache_quant: "q8_0"
-  adapter: null       # path to LoRA/GGUF adapter after PR5; null = base model
+  adapter: null       # null | Ollama tag | path to adapter dir with ollama_tag
 
 embeddings:
   id: "BAAI/bge-m3"

@@ -7,7 +7,7 @@ Private, **local**, CLI-first study assistant for scripture Q&A with **citations
 Designed for an RTX 5070 Ti 16GB (Blackwell `sm_120`) on Windows.
 
 v1 is **RAG-first** (retrieve then answer). Optional QLoRA is for response *style*,
-not facts, and lands in a later PR.
+not facts — see [docs/FINETUNE_WINDOWS.md](docs/FINETUNE_WINDOWS.md).
 
 ## What this repo does and does not contain
 
@@ -65,6 +65,28 @@ Full Hugging Face generator weights (~28GB) are **not** pulled by default — on
 .\.venv\Scripts\python.exe -m lds_study.cli eval --profile default --models qwen2.5:14b,qwen3:14b
 # Fast recall-only: --retrieval-only   Subset: --buckets verse_lookup --limit 5
 ```
+
+### Optional QLoRA (PR5)
+
+Requires `pip install -e ".[finetune]"` (not needed for RAG). Build pairs → debug train →
+export → wire adapter → re-eval:
+
+```powershell
+.\.venv\Scripts\python.exe -m lds_study.cli finetune-dataset --max-pairs 64
+.\.venv\Scripts\python.exe -m lds_study.cli finetune-train --max-steps 20
+.\.venv\Scripts\python.exe -m lds_study.cli finetune-export
+# Set configs/models.yaml generator.adapter to adapters/lds-qlora (or the Ollama tag)
+.\.venv\Scripts\python.exe -m lds_study.cli eval --profile default --models lds-study-adapter --check-baselines
+```
+
+Keep the adapter **only if** citation validity and adversarial refusal meet or beat
+`configs/rag.yaml` `eval.baselines`. Use `--check-baselines` for a computed
+KEEP/REVERT verdict (exit 1 on REVERT). A style gain that costs groundedness is a
+regression.
+
+**Adapters trained on restricted material must not be published.** The dataset builder
+drops `redistributable: false` rows unconditionally (no override flag). Details:
+[docs/FINETUNE_WINDOWS.md](docs/FINETUNE_WINDOWS.md).
 
 ### Answer statuses and exit codes
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Fail if paths under data/, indexes/, models/, or outputs/ leave the allowlist.
+"""Fail if paths under data/, indexes/, models/, outputs/, private/, or adapters/
+leave the allowlist.
 
 Allowlist (must stay tight — review any change carefully):
   - data/**/.gitkeep, data/README.md, data/raw/user/EXAMPLE.meta.json
@@ -7,6 +8,7 @@ Allowlist (must stay tight — review any change carefully):
   - outputs/.gitkeep, outputs/eval/.gitkeep, outputs/eval/**/*.md  (PR4 reports)
 Denylist (always reject):
   - private/**, eval/golden.local.yaml, eval/*.local.yaml
+  - adapters/** (no allowlist entries — LoRA/GGUF stay local)
 
 Usage:
   python scripts/check_staged_data.py              # git staged files (fails closed if git broken)
@@ -23,7 +25,15 @@ import sys
 
 # private/ is fully gitignored personal tooling; reject if force-staged.
 # eval/*.local.yaml holds BYOF / restricted-source golden questions — never commit.
-MONITORED_PREFIXES = ("data/", "indexes/", "models/", "outputs/", "private/")
+# adapters/ holds LoRA/GGUF/Modelfile outputs (PR5) — never force-stage.
+MONITORED_PREFIXES = (
+    "data/",
+    "indexes/",
+    "models/",
+    "outputs/",
+    "private/",
+    "adapters/",
+)
 
 # Exact paths / globs that are always denied (even outside MONITORED_PREFIXES).
 DENYLIST_PATTERNS = (
@@ -146,7 +156,8 @@ def main(argv: list[str] | None = None) -> int:
             "\nAllowed structural paths only: data/**/.gitkeep, data/README.md, "
             "data/raw/user/EXAMPLE.meta.json, indexes/.gitkeep, models/.gitkeep, "
             "outputs/.gitkeep, outputs/eval/.gitkeep, outputs/eval/*.md (and nested). "
-            "Never stage private/ or eval/*.local.yaml (restricted / BYOF goldens)."
+            "Never stage private/, adapters/, or eval/*.local.yaml "
+            "(restricted / BYOF goldens / trained weights)."
         )
         return 1
 

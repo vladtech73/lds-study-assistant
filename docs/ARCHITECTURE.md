@@ -28,7 +28,10 @@ End-to-end map for the local LDS study assistant (CLI-only v1).
 5. **`lds eval`** (PR4) — `eval/golden.yaml` (plus optional `golden.local.yaml`);
    writes `outputs/eval/{date}.md` comparison tables and suggested `rag.yaml` baselines.
    Use [IMPROVEMENT_CYCLE.md](IMPROVEMENT_CYCLE.md) to iterate on config/data from those metrics.
-6. **Optional QLoRA** (PR5) — style adapter on redistributable-only data; keep only if eval does not regress.
+6. **Optional QLoRA** (PR5) — `lds finetune-dataset` / `finetune-train` / `finetune-export`;
+   style adapter on redistributable-only data; keep only if eval does not regress.
+   Set `generator.adapter` in `configs/models.yaml` (Ollama tag or adapter dir with
+   `ollama_tag`).
 
 ## Where RAG and the optional adapter meet
 
@@ -40,7 +43,7 @@ End-to-end map for the local LDS study assistant (CLI-only v1).
 ```
 
 Facts come from retrieval. An adapter (if set in `configs/models.yaml`) may change
-tone/format only. Hybrid is off until PR5 and only kept if PR4 metrics hold.
+tone/format only. Keep it only if PR4 `eval.baselines` still hold after `lds eval`.
 
 ## Package layout
 
@@ -50,7 +53,7 @@ tone/format only. Hybrid is off until PR5 and only kept if PR4 metrics hold.
 | `src/lds_study/index/` | Retriever protocol + Chroma dense store, BM25, hybrid (PR3) |
 | `src/lds_study/rag/` | Prompt, generate, citations, `lds ask` (PR3) |
 | `src/lds_study/eval/` | Golden harness (PR4) |
-| `src/lds_study/finetune/` | Dataset + QLoRA (PR5) |
+| `src/lds_study/finetune/` | Dataset + QLoRA + merge/export (PR5) |
 
 LlamaIndex is used only for the HuggingFace embedding wrapper in `index/embedder.py`.
 Dense storage is plain `chromadb`; sparse is `rank-bm25`. Index directories under

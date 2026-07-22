@@ -219,6 +219,106 @@ def test_run_eval_with_scripted_generator_citation_and_refuse(tmp_path: Path) ->
     assert by_id[("adv-1", "scripted")].refusal_correct is True
 
 
+def test_run_eval_check_baselines_keep_and_revert(tmp_path: Path) -> None:
+    eval_dir = tmp_path / "eval"
+    eval_dir.mkdir()
+    (eval_dir / "golden.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "version": 1,
+                "questions": [
+                    {
+                        "id": "ok-1",
+                        "bucket": "doctrinal_synthesis",
+                        "question": "faith q",
+                        "gold_chunk_ids": ["bofm/alma/32/27"],
+                    },
+                    {
+                        "id": "adv-1",
+                        "bucket": "adversarial",
+                        "question": "out of corpus",
+                        "expect_refuse": True,
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        root=tmp_path,
+        data_dir=tmp_path / "data",
+        index_dir=tmp_path / "indexes",
+        models_dir=tmp_path / "models",
+        outputs_dir=tmp_path / "outputs",
+    )
+    cfg = tmp_path / "configs"
+    cfg.mkdir()
+    (cfg / "models.yaml").write_text("generator:\n  id: scripted\n", encoding="utf-8")
+    (cfg / "rag.yaml").write_text(
+        "retrieval:\n  final_top_k: 8\n  min_score: 0.0\n"
+        "citation:\n  min_coverage: 0.8\n  max_regenerate: 1\n"
+        "ask:\n  temperature: 0.0\n  retry_temperature: 0.0\n"
+        "eval:\n  recall_k: 8\n  baselines:\n"
+        "    min_recall_at_k: 0.5\n"
+        "    min_citation_validity: 0.5\n"
+        "    min_adversarial_refusal: 0.5\n",
+        encoding="utf-8",
+    )
+    prompts = tmp_path / "prompts"
+    prompts.mkdir()
+    for name in ("study_assistant.md", "lesson_assistant.md", "talk_assistant.md"):
+        src = ROOT / "prompts" / name
+        (prompts / name).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
+    retriever = _FakeRetriever(
+        {
+            "faith q": ["bofm/alma/32/27"],
+            "out of corpus": [],
+            "*": ["bofm/alma/32/27"],
+        }
+    )
+    gen = ScriptedGenerator(
+        replies=["Faith grows as we experiment [[bofm/alma/32/27]]."]
+    )
+    keep = run_eval(
+        profile="default",
+        models=["scripted"],
+        include_local=False,
+        settings=settings,
+        retriever=retriever,
+        generators={"scripted": gen},
+        stem="unit-keep",
+        check_baselines=True,
+    )
+    assert keep.baseline_verdicts["scripted"][0] is True
+
+    # Impossible citation floor → REVERT
+    (cfg / "rag.yaml").write_text(
+        "retrieval:\n  final_top_k: 8\n  min_score: 0.0\n"
+        "citation:\n  min_coverage: 0.8\n  max_regenerate: 1\n"
+        "ask:\n  temperature: 0.0\n  retry_temperature: 0.0\n"
+        "eval:\n  recall_k: 8\n  baselines:\n"
+        "    min_citation_validity: 1.01\n",
+        encoding="utf-8",
+    )
+    gen2 = ScriptedGenerator(
+        replies=["Faith grows as we experiment [[bofm/alma/32/27]]."]
+    )
+    revert = run_eval(
+        profile="default",
+        models=["scripted"],
+        include_local=False,
+        settings=settings,
+        retriever=retriever,
+        generators={"scripted": gen2},
+        stem="unit-revert",
+        check_baselines=True,
+    )
+    ok, failures = revert.baseline_verdicts["scripted"]
+    assert ok is False
+    assert any("citation_validity" in f for f in failures)
+
+
 def test_suggested_baselines_and_table() -> None:
     from lds_study.eval.metrics import AggregateMetrics
 
