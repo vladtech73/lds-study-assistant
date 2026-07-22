@@ -32,11 +32,21 @@ from lds_study.eval.metrics import (
     suggest_min_score,
     suggested_baselines,
 )
+from lds_study.eval.compare import (
+    ComparisonResult,
+    diff_summaries,
+    load_summary,
+    normalize_compare_display,
+    render_comparison_section,
+    render_no_comparison_section,
+    resolve_compare_reference,
+)
 from lds_study.eval.report import (
     default_report_stem,
     report_paths,
     write_json_sidecar,
     write_markdown_report,
+    write_summary_json,
 )
 from lds_study.index.base import RetrievalResult, Retriever
 from lds_study.index.build import load_retriever
@@ -64,6 +74,11 @@ class EvalResult:
     # PR5 keep-or-revert: model -> (keep: bool, failures: list[str])
     baseline_verdicts: dict[str, tuple[bool, list[str]]] = field(default_factory=dict)
     baselines_checked: dict[str, float] = field(default_factory=dict)
+    summary_path: Path | None = None
+    comparison: ComparisonResult | None = None
+    compare_reason: str | None = None
+    buckets: list[str] | None = None
+    limit: int | None = None
 
 
 def _build_generator_for_model(
@@ -200,6 +215,7 @@ def run_eval(
     retrieval_only: bool = False,
     stem: str | None = None,
     check_baselines: bool = False,
+    compare: str = "auto",
     settings: Settings | None = None,
     retriever: Retriever | None = None,
     generators: dict[str, Generator] | None = None,
@@ -233,6 +249,20 @@ def run_eval(
             model_list = [gen_id]
     if not model_list:
         raise ValueError("At least one model id is required")
+
+    out_dir_early = settings.resolve(settings.outputs_dir) / "eval"
+    # Fail-fast on explicit --compare before retrieval / generation work.
+    compare_mode = (compare or "auto").strip()
+    early_ref: Path | None = None
+    early_reason: str | None = None
+    if compare_mode.lower() not in {"auto", "none"}:
+        early_ref, early_reason = resolve_compare_reference(
+            compare=compare,
+            repo_root=settings.effective_root,
+            eval_cfg=eval_cfg if isinstance(eval_cfg, dict) else {},
+            exclude=None,
+            outputs_eval_dir=out_dir_early,
+        )
 
     questions = load_golden_set(
         settings.effective_root,
@@ -364,51 +394,133 @@ def run_eval(
 
     out_dir = settings.resolve(settings.outputs_dir) / "eval"
     report_stem = stem or default_report_stem()
-    md_path, json_path = report_paths(out_dir, report_stem)
-    if md_path.exists():
+    md_path, json_path, summary_path = report_paths(out_dir, report_stem)
+    if md_path.exists() or json_path.exists() or summary_path.exists():
         n = 2
         while True:
             candidate = f"{report_stem}-{n}"
-            md_c, json_c = report_paths(out_dir, candidate)
-            if not md_c.exists():
-                md_path, json_path = md_c, json_c
+            md_c, json_c, sum_c = report_paths(out_dir, candidate)
+            if not (md_c.exists() or json_c.exists() or sum_c.exists()):
+                md_path, json_path, summary_path = md_c, json_c, sum_c
                 break
             n += 1
 
-    write_markdown_report(
-        md_path,
-        profile=profile,
-        k=k,
-        models=model_list,
-        aggs=aggs,
-        items=items,
-        retrieval_only=retrieval_only,
-        include_local=include_local,
-        source_counts=source_counts,
-        golden_hash=golden_hash,
-        golden_local_hash=golden_local_hash,
-        recall_shared=recall_shared,
-        score_dist=dist,
-        suggested_min_score=suggested_score,
-        coverage=cov,
-    )
-    write_json_sidecar(
-        json_path,
-        profile=profile,
-        k=k,
-        models=model_list,
-        aggs=aggs,
-        items=items,
-        retrieval_only=retrieval_only,
-        include_local=include_local,
-        source_counts=source_counts,
-        golden_hash=golden_hash,
-        golden_local_hash=golden_local_hash,
-        recall_shared=recall_shared,
-        score_dist=dist,
-        suggested_min_score=suggested_score,
-        coverage=cov,
-    )
+    bucket_list = [str(b) for b in buckets] if buckets else None
+    trend_tol = float(eval_cfg.get("trend_tolerance", 0.02))
+    comparison: ComparisonResult | None = None
+    compare_reason: str | None = None
+    comparison_section: str | None = None
+    repo_root = settings.effective_root
+    created: list[Path] = []
+
+    # Write summary first so compare can exclude it and MD can embed the delta.
+    # On later failure, unlink any artifacts this invocation created.
+    try:
+        created.append(summary_path)
+        write_summary_json(
+            summary_path,
+            profile=profile,
+            k=k,
+            models=model_list,
+            aggs=aggs,
+            retrieval_only=retrieval_only,
+            include_local=include_local,
+            source_counts=source_counts,
+            golden_hash=golden_hash,
+            golden_local_hash=golden_local_hash,
+            recall_shared=recall_shared,
+            suggested_min_score=suggested_score,
+            coverage=cov,
+            baselines_checked=floors,
+            baseline_verdicts=baseline_verdicts,
+            buckets=bucket_list,
+            limit=limit,
+        )
+
+        if compare_mode.lower() not in {"auto", "none"}:
+            ref_path, compare_reason = early_ref, early_reason
+        else:
+            ref_path, compare_reason = resolve_compare_reference(
+                compare=compare,
+                repo_root=repo_root,
+                eval_cfg=eval_cfg if isinstance(eval_cfg, dict) else {},
+                exclude=summary_path,
+                outputs_eval_dir=out_dir,
+            )
+
+        compare_display = normalize_compare_display(
+            compare, resolved=ref_path, repo_root=repo_root
+        )
+
+        if ref_path is not None:
+            try:
+                prev = load_summary(ref_path)
+                curr = load_summary(summary_path)
+                comparison = diff_summaries(
+                    prev,
+                    curr,
+                    tolerance=trend_tol,
+                    previous_path=ref_path,
+                    current_path=summary_path,
+                )
+                comparison_section = render_comparison_section(
+                    comparison, repo_root=repo_root
+                )
+            except (OSError, ValueError) as exc:
+                compare_reason = f"compare failed: {exc}"
+                comparison = None
+                comparison_section = render_no_comparison_section(compare_reason)
+        else:
+            comparison_section = render_no_comparison_section(
+                compare_reason or "no reference"
+            )
+
+        created.append(md_path)
+        write_markdown_report(
+            md_path,
+            profile=profile,
+            k=k,
+            models=model_list,
+            aggs=aggs,
+            items=items,
+            retrieval_only=retrieval_only,
+            include_local=include_local,
+            source_counts=source_counts,
+            golden_hash=golden_hash,
+            golden_local_hash=golden_local_hash,
+            recall_shared=recall_shared,
+            score_dist=dist,
+            suggested_min_score=suggested_score,
+            coverage=cov,
+            baselines_checked=floors,
+            baseline_verdicts=baseline_verdicts,
+            baselines_gate_ran=check_baselines,
+            comparison_section=comparison_section,
+            compare_mode=compare_display,
+        )
+        created.append(json_path)
+        write_json_sidecar(
+            json_path,
+            profile=profile,
+            k=k,
+            models=model_list,
+            aggs=aggs,
+            items=items,
+            retrieval_only=retrieval_only,
+            include_local=include_local,
+            source_counts=source_counts,
+            golden_hash=golden_hash,
+            golden_local_hash=golden_local_hash,
+            recall_shared=recall_shared,
+            score_dist=dist,
+            suggested_min_score=suggested_score,
+            coverage=cov,
+        )
+    except Exception:
+        for path in created:
+            if path.is_file():
+                path.unlink(missing_ok=True)
+        raise
 
     return EvalResult(
         profile=profile,
@@ -426,4 +538,9 @@ def run_eval(
         recall_shared=recall_shared,
         baseline_verdicts=baseline_verdicts,
         baselines_checked=floors,
+        summary_path=summary_path,
+        comparison=comparison,
+        compare_reason=compare_reason,
+        buckets=bucket_list,
+        limit=limit,
     )

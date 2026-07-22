@@ -35,6 +35,7 @@ outputs/**
 !outputs/eval/**/
 !outputs/eval/.gitkeep
 !outputs/eval/**/*.md
+!outputs/eval/**/*.summary.json
 adapters/
 
 # Local-only golden questions over restricted / BYOF sources (never commit).

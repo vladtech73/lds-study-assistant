@@ -35,6 +35,10 @@ ask:
 # (run at retrieval.min_score: 0.05; do not hand-edit).
 eval:
   recall_k: 8
+  # Noise band for --compare trend flags (generation metrics). Recall@k / retrieval-only uses 0.
+  trend_tolerance: 0.02
+  # Optional blessed comparison target (stem or path under outputs/eval/). Unset until promotion.
+  # reference_report: 2026-07-21-r2
   baselines:
     min_recall_at_k: 0.711
     min_citation_validity: 0.9
