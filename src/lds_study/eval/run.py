@@ -51,7 +51,11 @@ from lds_study.eval.report import (
 from lds_study.index.base import RetrievalResult, Retriever
 from lds_study.index.build import load_retriever
 from lds_study.rag.ask import run_ask
-from lds_study.rag.generate import Generator, OllamaGenerator
+from lds_study.rag.generate import (
+    Generator,
+    OllamaGenerator,
+    resolve_generator_think,
+)
 
 console = Console()
 
@@ -97,6 +101,7 @@ def _build_generator_for_model(
         model=model_id,
         num_ctx=int(gen.get("num_ctx") or 8192),
         keep_alive=str(gen.get("keep_alive") or "5m"),
+        think=resolve_generator_think(gen),
     )
 
 

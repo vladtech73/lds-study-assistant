@@ -57,6 +57,31 @@ def resolve_generator_model_id(models_cfg: dict, *, root: Path | None = None) ->
     return adapter
 
 
+def resolve_generator_think(gen: dict) -> bool | str | None:
+    """Map ``generator.think`` to an Ollama ``think`` payload value.
+
+    - missing key → ``False`` (disable thinking for RAG latency)
+    - ``null`` / ``none`` / ``omit`` → ``None`` (omit field; model/Ollama default)
+    - bool or level string (``low`` / ``medium`` / ``xhigh`` / …) → passed through
+    """
+    if "think" not in gen:
+        return False
+    raw = gen.get("think")
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        return raw
+    text = str(raw).strip()
+    if not text or text.lower() in {"null", "none", "omit"}:
+        return None
+    lowered = text.lower()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    return text
+
+
 class Generator(Protocol):
     def complete(self, *, system: str, user: str, temperature: float) -> str:
         """Return assistant text for one turn."""
@@ -68,9 +93,10 @@ class OllamaGenerator:
     model: str
     num_ctx: int = 8192
     keep_alive: str = "5m"
+    think: bool | str | None = False
 
     def complete(self, *, system: str, user: str, temperature: float) -> str:
-        payload = {
+        payload: dict = {
             "model": self.model,
             "stream": False,
             "keep_alive": self.keep_alive,
@@ -83,6 +109,8 @@ class OllamaGenerator:
                 {"role": "user", "content": user},
             ],
         }
+        if self.think is not None:
+            payload["think"] = self.think
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
             f"{self.host.rstrip('/')}/api/chat",
@@ -143,4 +171,5 @@ def build_ollama_generator(
         model=model,
         num_ctx=int(gen.get("num_ctx") or 8192),
         keep_alive=str(gen.get("keep_alive") or "5m"),
+        think=resolve_generator_think(gen),
     )

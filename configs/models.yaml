@@ -2,10 +2,12 @@
 # Change IDs here; scripts/pull_models.py and the RAG path read this file.
 
 generator:
-  # PR4 eval (outputs/eval/2026-07-21-r2.md at min_score 0.05): keep Qwen2.5-14B as
-  # default. qwen3:14b matched or edged citation validity but trailed adversarial
-  # refusal (9/12 vs 11/12). Hybrid adapter (PR5): set `adapter` to an Ollama tag or
-  # to an adapters/… directory that contains `ollama_tag` after finetune-export.
+  # Keep Qwen2.5-14B as default until a shortlist challenger wins without timeouts.
+  # 2026-07-21-r2: qwen3:14b edged citation validity but trailed adversarial refusal.
+  # 2026-10-16-qwen25-vs-qwen38: qwen3.8:27b-64k matched cite validity and beat refusal
+  # (10/12 vs 9/12) but timed out once on lesson_planning (lp-007) with thinking on.
+  # Hybrid adapter (PR5): set `adapter` to an Ollama tag or to an adapters/… directory
+  # that contains `ollama_tag` after finetune-export.
   id: "qwen2.5:14b"
   hf_id: "Qwen/Qwen2.5-14B-Instruct"  # pulled only with --include-finetune-weights
   # Documentation-only: Ollama tag already selects quant; not read by pull_models yet.
@@ -13,6 +15,9 @@ generator:
   backend: "ollama"   # ollama | llama.cpp (vLLM is Linux/WSL2 only — not supported on native Windows)
   num_ctx: 8192
   keep_alive: "5m"
+  # Disable Ollama "thinking" for RAG latency/reliability (qwen3.8 and similar).
+  # Set to null to omit and use the model's Ollama default; or "low"/"medium"/"xhigh".
+  think: false
   # Server-side only — set via env `OLLAMA_KV_CACHE_TYPE=q8_0` (not a per-request option).
   kv_cache_quant: "q8_0"
   adapter: null       # null | Ollama tag | path to adapter dir with ollama_tag
@@ -28,7 +33,8 @@ reranker:
   device: "cpu"       # default on 16GB: keep VRAM for the generator during ask
 
 shortlist:
-  # Candidates for PR4 eval promotion (not all pulled by default)
+  # Candidates for eval promotion (not all pulled by default)
   - "qwen2.5:14b"
   - "qwen3:14b"
   - "gpt-oss:20b"
+  - "qwen3.8:27b-64k"
