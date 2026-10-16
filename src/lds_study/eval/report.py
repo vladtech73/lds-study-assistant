@@ -2,21 +2,191 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
 from lds_study.eval.metrics import AggregateMetrics, ItemMetrics, suggested_baselines
 
+# Aggregates-only summary schema (copyright boundary — never add per-item text).
+SUMMARY_SCHEMA_VERSION = 1
+
+# Top-level keys permitted in a committed summary. New fields must be reviewed
+# against the copyright boundary and added here intentionally.
+SUMMARY_TOP_LEVEL_KEYS = frozenset(
+    {
+        "schema_version",
+        "generated_at",
+        "profile",
+        "k",
+        "models",
+        "retrieval_only",
+        "include_local",
+        "buckets",
+        "limit",
+        "source_counts",
+        "golden_hash",
+        "golden_local_hash",
+        "recall_shared",
+        "aggregates",
+        "suggested_baselines",
+        "suggested_min_score",
+        "coverage_stats",
+        "baselines_checked",
+        "baseline_verdicts",
+        "config_fingerprint",
+    }
+)
+
+# Aggregate fields permitted in summaries. Intentionally omits ``first_error``
+# (unbounded free text that can echo restricted question content).
+SUMMARY_AGGREGATE_KEYS = frozenset(
+    {
+        "model",
+        "n_items",
+        "recall_at_k",
+        "recall_n",
+        "citation_validity_rate",
+        "citation_n",
+        "invalid_marker_rate",
+        "invalid_marker_n",
+        "coverage_fail_rate",
+        "coverage_fail_n",
+        "adversarial_refusal_rate",
+        "adversarial_n",
+        "status_counts",
+        "error_n",
+    }
+)
+
 
 def default_report_stem(when: date | None = None) -> str:
     return (when or date.today()).isoformat()
 
 
-def report_paths(outputs_eval_dir: Path, stem: str) -> tuple[Path, Path]:
-    """Return (md_path, json_path). JSON is local-only (gitignored via outputs/**)."""
+def report_paths(outputs_eval_dir: Path, stem: str) -> tuple[Path, Path, Path]:
+    """Return (md_path, json_path, summary_path).
+
+    Full JSON sidecar is local-only (gitignored). ``*.summary.json`` is
+    aggregates-only and allowlisted for commit.
+    """
     outputs_eval_dir.mkdir(parents=True, exist_ok=True)
-    return outputs_eval_dir / f"{stem}.md", outputs_eval_dir / f"{stem}.json"
+    return (
+        outputs_eval_dir / f"{stem}.md",
+        outputs_eval_dir / f"{stem}.json",
+        outputs_eval_dir / f"{stem}.summary.json",
+    )
+
+
+def _serialize_baseline_verdicts(
+    verdicts: dict[str, tuple[bool, list[str]]] | None,
+) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for model, pair in (verdicts or {}).items():
+        keep, failures = pair
+        out[str(model)] = {"keep": bool(keep), "failures": list(failures)}
+    return out
+
+
+def summary_safe_aggregate(agg: AggregateMetrics) -> dict[str, Any]:
+    """Serialize one aggregate for the summary — counts only, no free-text errors."""
+    raw = agg.to_dict()
+    return {k: raw[k] for k in SUMMARY_AGGREGATE_KEYS if k in raw}
+
+
+def build_summary_payload(
+    *,
+    profile: str,
+    k: int,
+    models: Sequence[str],
+    aggs: Sequence[AggregateMetrics],
+    retrieval_only: bool,
+    include_local: bool = False,
+    source_counts: dict[str, int] | None = None,
+    golden_hash: str | None = None,
+    golden_local_hash: str | None = None,
+    recall_shared: float | None = None,
+    suggested_min_score: float | None = None,
+    coverage: dict[str, Any] | None = None,
+    baselines_checked: dict[str, float] | None = None,
+    baseline_verdicts: dict[str, tuple[bool, list[str]]] | None = None,
+    buckets: Sequence[str] | None = None,
+    limit: int | None = None,
+    config_fingerprint: dict[str, str] | None = None,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    """Build the aggregates-only summary dict (schema v1). No ``items`` / free text."""
+    return {
+        "schema_version": SUMMARY_SCHEMA_VERSION,
+        "generated_at": generated_at
+        or datetime.now(timezone.utc).isoformat(),
+        "profile": profile,
+        "k": k,
+        "models": list(models),
+        "retrieval_only": retrieval_only,
+        "include_local": include_local,
+        "buckets": list(buckets) if buckets else None,
+        "limit": limit,
+        "source_counts": source_counts or {},
+        "golden_hash": golden_hash,
+        "golden_local_hash": golden_local_hash,
+        "recall_shared": recall_shared,
+        "aggregates": [summary_safe_aggregate(a) for a in aggs],
+        "suggested_baselines": suggested_baselines(aggs),
+        "suggested_min_score": suggested_min_score,
+        "coverage_stats": coverage,
+        "baselines_checked": dict(baselines_checked or {}),
+        "baseline_verdicts": _serialize_baseline_verdicts(baseline_verdicts),
+        # Filled by PR6b fingerprints; present so schema is stable.
+        "config_fingerprint": config_fingerprint,
+    }
+
+
+def write_summary_json(
+    path: Path,
+    *,
+    profile: str,
+    k: int,
+    models: Sequence[str],
+    aggs: Sequence[AggregateMetrics],
+    retrieval_only: bool,
+    include_local: bool = False,
+    source_counts: dict[str, int] | None = None,
+    golden_hash: str | None = None,
+    golden_local_hash: str | None = None,
+    recall_shared: float | None = None,
+    suggested_min_score: float | None = None,
+    coverage: dict[str, Any] | None = None,
+    baselines_checked: dict[str, float] | None = None,
+    baseline_verdicts: dict[str, tuple[bool, list[str]]] | None = None,
+    buckets: Sequence[str] | None = None,
+    limit: int | None = None,
+    config_fingerprint: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Write aggregates-only ``*.summary.json``. Returns the payload written."""
+    payload = build_summary_payload(
+        profile=profile,
+        k=k,
+        models=models,
+        aggs=aggs,
+        retrieval_only=retrieval_only,
+        include_local=include_local,
+        source_counts=source_counts,
+        golden_hash=golden_hash,
+        golden_local_hash=golden_local_hash,
+        recall_shared=recall_shared,
+        suggested_min_score=suggested_min_score,
+        coverage=coverage,
+        baselines_checked=baselines_checked,
+        baseline_verdicts=baseline_verdicts,
+        buckets=buckets,
+        limit=limit,
+        config_fingerprint=config_fingerprint,
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return payload
 
 
 def _pct(value: float | None) -> str:
@@ -71,6 +241,11 @@ def write_markdown_report(
     suggested_min_score: float | None = None,
     coverage: dict[str, Any] | None = None,
     notes: str = "",
+    baselines_checked: dict[str, float] | None = None,
+    baseline_verdicts: dict[str, tuple[bool, list[str]]] | None = None,
+    baselines_gate_ran: bool = False,
+    comparison_section: str | None = None,
+    compare_mode: str | None = None,
 ) -> None:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     baselines = suggested_baselines(aggs)
@@ -98,6 +273,7 @@ def write_markdown_report(
         f"- include_local={include_local}; source_counts={source_counts}",
         f"- golden.yaml sha256[:16]={golden_hash or 'n/a'}",
         f"- golden.local.yaml sha256[:16]={golden_local_hash or 'n/a'}",
+        f"- compare={compare_mode or 'n/a'}",
         "- Manual quality column is left blank for human scoring (1-5).",
         "",
         "## Retrieval quality (shared)",
@@ -151,11 +327,12 @@ def write_markdown_report(
         ]
     )
     if any(a.error_n for a in aggs):
+        # Do not embed free-text first_error — it can echo restricted question
+        # content into a committed *.md. Full detail stays in the gitignored sidecar.
         lines.append(
-            "\\* First error message(s): "
-            + "; ".join(
-                f"`{a.model}`: {a.first_error}" for a in aggs if a.first_error
-            )
+            "\\* Errors: "
+            + "; ".join(f"`{a.model}`: {a.error_n}" for a in aggs if a.error_n)
+            + " (details in JSON sidecar)"
         )
         lines.append("")
 
@@ -175,6 +352,33 @@ def write_markdown_report(
         for key, val in baselines.items():
             lines.append(f"    {key}: {val}")
         lines.extend(["```", ""])
+
+    lines.extend(["## Keep-or-revert", ""])
+    if baselines_gate_ran and baselines_checked:
+        floors_bits = ", ".join(
+            f"{k}={v}" for k, v in sorted(baselines_checked.items())
+        )
+        lines.append(f"- Floors checked: {floors_bits}")
+        lines.append("")
+        if baseline_verdicts:
+            for model, (keep, failures) in baseline_verdicts.items():
+                if keep:
+                    lines.append(f"- `{model}`: **KEEP**")
+                else:
+                    detail = "; ".join(failures) if failures else "failed"
+                    lines.append(f"- `{model}`: **REVERT** — {detail}")
+        else:
+            lines.append("- (no per-model verdicts recorded)")
+        lines.append("")
+    else:
+        lines.append("- Gate not run (`--check-baselines` off).")
+        lines.append("")
+
+    if comparison_section and comparison_section.strip():
+        section = comparison_section.strip()
+        lines.append(section)
+        if not section.endswith("\n"):
+            lines.append("")
 
     if notes.strip():
         lines.extend(["## Notes", "", notes.strip(), ""])
@@ -255,8 +459,6 @@ def write_json_sidecar(
     suggested_min_score: float | None = None,
     coverage: dict[str, Any] | None = None,
 ) -> None:
-    import json
-
     payload = {
         "profile": profile,
         "k": k,

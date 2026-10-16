@@ -6,6 +6,7 @@ Allowlist (must stay tight — review any change carefully):
   - data/**/.gitkeep, data/README.md, data/raw/user/EXAMPLE.meta.json
   - indexes/.gitkeep, models/.gitkeep
   - outputs/.gitkeep, outputs/eval/.gitkeep, outputs/eval/**/*.md  (PR4 reports)
+  - outputs/eval/**/*.summary.json  (PR6a aggregates-only; full *.json still denied)
 Denylist (always reject):
   - private/**, eval/golden.local.yaml, eval/*.local.yaml
   - adapters/** (no allowlist entries — LoRA/GGUF stay local)
@@ -54,6 +55,9 @@ ALLOWLIST_PATTERNS = (
     # outputs/eval/2026-07-20.md case needs its own pattern.
     "outputs/eval/*.md",
     "outputs/eval/**/*.md",
+    # Aggregates-only eval summaries (PR6a); full *.json sidecars stay denied.
+    "outputs/eval/*.summary.json",
+    "outputs/eval/**/*.summary.json",
 )
 
 
@@ -155,7 +159,8 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "\nAllowed structural paths only: data/**/.gitkeep, data/README.md, "
             "data/raw/user/EXAMPLE.meta.json, indexes/.gitkeep, models/.gitkeep, "
-            "outputs/.gitkeep, outputs/eval/.gitkeep, outputs/eval/*.md (and nested). "
+            "outputs/.gitkeep, outputs/eval/.gitkeep, outputs/eval/*.md (and nested), "
+            "outputs/eval/*.summary.json (and nested). "
             "Never stage private/, adapters/, or eval/*.local.yaml "
             "(restricted / BYOF goldens / trained weights)."
         )

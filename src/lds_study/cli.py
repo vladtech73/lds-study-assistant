@@ -231,8 +231,17 @@ def eval_cmd(
             "eval.baselines; exit 1 if any REVERT."
         ),
     ),
+    compare: str = typer.Option(
+        "auto",
+        "--compare",
+        help=(
+            "Trend vs a prior aggregates-only summary: path, 'auto' "
+            "(reference_report then newest git-tracked *.summary.json), or 'none'."
+        ),
+    ),
 ) -> None:
-    """Run golden-question eval; write outputs/eval/{date}.md (+ JSON sidecar)."""
+    """Run golden-question eval; write outputs/eval/{date}.md (+ JSON + summary)."""
+    from lds_study.eval.compare import render_comparison_console
     from lds_study.eval.run import run_eval
 
     model_list = (
@@ -252,6 +261,7 @@ def eval_cmd(
             retrieval_only=retrieval_only,
             stem=stem,
             check_baselines=check_baselines,
+            compare=compare,
         )
     except (FileNotFoundError, ValueError, RuntimeError) as exc:
         console.print("eval failed:", str(exc), style="red")
@@ -259,6 +269,14 @@ def eval_cmd(
 
     console.print(f"[green]Wrote[/green] {result.md_path}")
     console.print(f"JSON sidecar -> {result.json_path}")
+    if result.summary_path is not None:
+        console.print(f"Summary -> {result.summary_path}")
+    if result.compare_reason:
+        console.print(f"Compare reference: {result.compare_reason}")
+    if result.comparison is not None:
+        for line in render_comparison_console(result.comparison):
+            # markup=False: model labels use parentheses; keep [REGRESSED] literal.
+            console.print(line, markup=False)
     for agg in result.aggregates:
         console.print(
             f"  {agg.model}: recall={agg.recall_at_k} "
